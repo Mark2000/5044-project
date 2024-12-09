@@ -11,4 +11,7 @@ station_trajectories = [
 
 lt = LinearizedSystem(nominal_trajectory, station_trajectories)
 
-ydata = np.loadtxt("ydata.csv", delimiter=",")
+raw_ydata = np.loadtxt("ydata.csv", delimiter=",")
+raw_ydata[:,0] = 0
+y_truth = raw_ydata.T[:,:3]
+visible_stations_truth = [[int(i-1)] for i in raw_ydata[3,:]]

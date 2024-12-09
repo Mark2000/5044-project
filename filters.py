@@ -35,6 +35,7 @@ class LKF:
         assert len(visible_stations) == y_k_plus_1.size // 3
         
         F_k = self.lt.F_tilde(t_k, self.dt)
+        Omega_k = self.lt.Omega_tilde(t_k, self.dt)
 
         ind = np.zeros(len(self.lt.stations)*3, dtype=bool)
         for st in visible_stations:
@@ -48,7 +49,7 @@ class LKF:
         )
 
         delta_x_k_plus_1_pre = F_k @ x_hat_k
-        P_x_k_plus_1_pre = F_k @ P_k @ F_k.T
+        P_x_k_plus_1_pre = F_k @ P_k @ F_k.T + Omega_k @ Q_k @ Omega_k.T
 
         K = P_k @ H_k.T @ np.linalg.inv( H_k@P_x_k_plus_1_pre@H_k.T + self.lt.R(t_k, len(visible_stations)) )
         delta_y_k_plus_1 = y_k_plus_1 - y_k_plus_1_star
