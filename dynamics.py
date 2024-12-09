@@ -141,14 +141,6 @@ class LinearizedSystem:
     def H_tilde(self, t: float):
         return self.C(t)
 
-    def R(self, t: float, n_stations: int):
-        R = np.eye(3)
-        R[0,0] = R[2,2] = 0.01
-        return np.block([R] * n_stations)
-
-    def Q(self, t: float):
-        return 1e-10*np.eye(2)
-
 def measurement(x: Sequence[float], x_s: Sequence[float]):
     rho = np.sqrt((x[0] - x_s[0]) ** 2 + (x[2] - x_s[2]) ** 2)
     N = (x[0] - x_s[0]) * (x[1] - x_s[1]) + (x[2] - x_s[2]) * (x[3] - x_s[3])
