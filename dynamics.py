@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import partial
 from itertools import product
 from typing import *
 
@@ -39,18 +40,39 @@ class CircularTrajectory:
 @dataclass
 class EllipticalTrajectory:
     x0: Sequence[float]
+    Q: Optional[np.ndarray] = np.eye(2) * 1e-10
 
-    def propagate(self, t: np.ndarray):
-        def orbit_dynamics(t, state):
+    def propagate(self, t: np.ndarray, use_process_noise: bool = False):
+        def orbit_dynamics(t, state, process_noise_value=None):
             x, vx, y, vy = state
             r = np.sqrt(x**2 + y**2)
             ax = -mu * x / r**3
             ay = -mu * y / r**3
+
+            if process_noise_value is not None:
+                ax += process_noise_value[0]
+                ay += process_noise_value[1]
+
             return [vx, ax, vy, ay]
 
-        return solve_ivp(
-            orbit_dynamics, [t[0], t[-1]], self.x0, t_eval=t, rtol=1e-9
-        ).y.T
+        sol = [self.x0]
+        process_noise_value = None
+        for t0, t1 in zip(t[:-1], t[1:]):
+            if use_process_noise:
+                process_noise_value = np.random.multivariate_normal([0, 0], self.Q)
+
+            step = solve_ivp(
+                partial(orbit_dynamics, process_noise_value=process_noise_value),
+                [t0, t1],
+                sol[-1],
+                t_eval=[t0, t1],
+                rtol=1e-9,
+            ).y.T
+            sol.append(step[1])
+
+        sol = np.array(sol)
+        print(sol)
+        return sol
 
 
 @dataclass
@@ -124,7 +146,7 @@ class LinearizedSystem:
         return self.D(t)
 
     def F_tilde(self, t: float, dt: float):
-        return np.eye(4) + dt*self.A(t)
+        return np.eye(4) + dt * self.A(t)
 
     def G_tilde(self, t: float, dt: float):
         return dt * self.B(t)
@@ -133,23 +155,40 @@ class LinearizedSystem:
         return self.B(t)
 
     def Omega_tilde(self, t: float, dt: float):
-        B = np.zeros([4,2])
-        B[1,0] = 1
-        B[3,1] = 1 
+        B = np.zeros([4, 2])
+        B[1, 0] = 1
+        B[3, 1] = 1
         return B
 
     def H_tilde(self, t: float):
         return self.C(t)
 
-def measurement(x: Sequence[float], x_s: Sequence[float]):
+
+def measurement(
+    x: Sequence[float],
+    x_s: Sequence[float],
+    R: Optional[np.ndarray] = None,
+):
     rho = np.sqrt((x[0] - x_s[0]) ** 2 + (x[2] - x_s[2]) ** 2)
     N = (x[0] - x_s[0]) * (x[1] - x_s[1]) + (x[2] - x_s[2]) * (x[3] - x_s[3])
     psi = np.arctan2((x[2] - x_s[2]), (x[0] - x_s[0]))
-    return [rho, N / rho, psi]
+
+    measurement = np.array([rho, N / rho, psi])
+
+    if R is None:
+        R = np.zeros((3, 3))
+    noise = np.random.multivariate_normal([0, 0, 0], R)
+
+    return measurement + noise
 
 
-def measurements(x: Sequence[float], stations: Sequence[CircularTrajectory], t: float):
-    return np.concatenate([measurement(x, st.state_at(t)) for st in stations])
+def measurements(
+    x: Sequence[float],
+    stations: Sequence[CircularTrajectory],
+    t: float,
+    R: Optional[np.ndarray] = None,
+):
+    return np.concatenate([measurement(x, st.state_at(t), R) for st in stations])
 
 
 def is_station_visible(x: Sequence[float], x_s: Sequence[float]):
