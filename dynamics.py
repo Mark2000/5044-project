@@ -123,6 +123,31 @@ class LinearizedSystem:
     def M(self, t: float):
         return self.D(t)
 
+    def F_tilde(self, t: float, dt: float):
+        return np.eye(4) + dt*self.A(t)
+
+    def G_tilde(self, t: float, dt: float):
+        return dt * self.B(t)
+
+    def Omega(self, t: float):
+        return self.B(t)
+
+    def Omega_tilde(self, t: float, dt: float):
+        B = np.zeros([4,2])
+        B[1,0] = 1
+        B[3,1] = 1 
+        return B
+
+    def H_tilde(self, t: float):
+        return self.C(t)
+
+    def R(self, t: float, n_stations: int):
+        R = np.eye(3)
+        R[0,0] = R[2,2] = 0.01
+        return np.block([R] * n_stations)
+
+    def Q(self, t: float):
+        return 1e-10*np.eye(2)
 
 def measurement(x: Sequence[float], x_s: Sequence[float]):
     rho = np.sqrt((x[0] - x_s[0]) ** 2 + (x[2] - x_s[2]) ** 2)
