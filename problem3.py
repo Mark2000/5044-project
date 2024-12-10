@@ -4,7 +4,9 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.testing as npt
+from constants import *
 from dynamics import *
+
 
 def plot_orbits(xs: Sequence[np.ndarray], ax=None):
     if ax is None:

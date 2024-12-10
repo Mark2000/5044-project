@@ -71,7 +71,6 @@ class EllipticalTrajectory:
             sol.append(step[1])
 
         sol = np.array(sol)
-        print(sol)
         return sol
 
 
@@ -188,6 +187,8 @@ def measurements(
     t: float,
     R: Optional[np.ndarray] = None,
 ):
+    if len(stations) == 0:
+        return np.array([])
     return np.concatenate([measurement(x, st.state_at(t), R) for st in stations])
 
 
