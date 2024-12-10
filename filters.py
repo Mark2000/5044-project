@@ -7,7 +7,7 @@ from dynamics import *
 @dataclass
 class LKF:
     lt: LinearizedSystem
-    x_hat_zero: np.ndarray
+    delta_x_hat_zero: np.ndarray
     P_zero: np.ndarray
     y_truth: list[np.ndarray]
     visible_stations: Sequence[Sequence[int]]
@@ -19,18 +19,18 @@ class LKF:
         assert len(self.y_truth) == len(self.visible_stations)
 
     def solve(self):
-        x_hat = np.zeros([len(self.y_truth), 4])
+        delta_x_hat = np.zeros([len(self.y_truth), 4])
         P = np.zeros([len(self.y_truth), 4, 4])
 
-        x_hat[0, :] = self.x_hat_zero
+        delta_x_hat[0, :] = self.delta_x_hat_zero
         P[0, :, :] = self.P_zero
 
         for k in range(len(self.y_truth) - 1):
-            x_hat[k + 1, :], P[k + 1, :, :] = self.lkf_step(k, x_hat[k, :], P[k, :, :])
+            delta_x_hat[k + 1, :], P[k + 1, :, :] = self.lkf_step(k, delta_x_hat[k, :], P[k, :, :])
 
-        return x_hat, P
+        return delta_x_hat, P
 
-    def lkf_step(self, k: int, x_hat_k: np.ndarray, P_k: np.ndarray):
+    def lkf_step(self, k: int, delta_x_hat_k: np.ndarray, P_k: np.ndarray):
         y_k_plus_1 = self.y_truth[k + 1]
         t_k = k * self.dt
         visible_stations = self.visible_stations[k + 1]
@@ -50,7 +50,7 @@ class LKF:
             t_k + self.dt,
         )
 
-        delta_x_k_plus_1_pre = F_k @ x_hat_k
+        delta_x_k_plus_1_pre = F_k @ delta_x_hat_k
         P_x_k_plus_1_pre = F_k @ P_k @ F_k.T + Omega_k @ self.Q @ Omega_k.T
 
         R_block = np.kron(np.eye(len(visible_stations)), self.R)
@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     lkf = LKF(
         lt=LinearizedSystem(nominal_trajectory, station_trajectories),
-        x_hat_zero=x_pert,
+        delta_x_hat_zero=x_pert,
         P_zero=np.eye(4) * 1000,
         y_truth=all_measurements,
         visible_stations=visible_stations,
