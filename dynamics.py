@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from itertools import product
 from typing import *
@@ -40,7 +40,7 @@ class CircularTrajectory:
 @dataclass
 class EllipticalTrajectory:
     x0: Sequence[float]
-    Q: Optional[np.ndarray] = np.eye(2) * 1e-10
+    Q: Optional[np.ndarray] = field(default_factory= lambda: np.eye(2) * 1e-10)
 
     def propagate(self, t: np.ndarray, use_process_noise: bool = False):
         def orbit_dynamics(t, state, process_noise_value=None):
