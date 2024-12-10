@@ -26,11 +26,11 @@ class LKF:
         P[0, :, :] = self.P_zero
 
         for k in range(len(self.y_truth) - 1):
-            delta_x_hat[k + 1, :], P[k + 1, :, :] = self.lkf_step(k, delta_x_hat[k, :], P[k, :, :])
+            delta_x_hat[k + 1, :], P[k + 1, :, :] = self.step(k, delta_x_hat[k, :], P[k, :, :])
 
         return delta_x_hat, P
 
-    def lkf_step(self, k: int, delta_x_hat_k: np.ndarray, P_k: np.ndarray):
+    def step(self, k: int, delta_x_hat_k: np.ndarray, P_k: np.ndarray):
         y_k_plus_1 = self.y_truth[k + 1]
         t_k = k * self.dt
         visible_stations = self.visible_stations[k + 1]
@@ -54,7 +54,7 @@ class LKF:
         P_x_k_plus_1_pre = F_k @ P_k @ F_k.T + Omega_k @ self.Q @ Omega_k.T
 
         R_block = np.kron(np.eye(len(visible_stations)), self.R)
-        K = P_k @ H_k.T @ np.linalg.inv(H_k @ P_x_k_plus_1_pre @ H_k.T + R_block)
+        K = P_x_k_plus_1_pre @ H_k.T @ np.linalg.inv(H_k @ P_x_k_plus_1_pre @ H_k.T + R_block)
         delta_y_k_plus_1 = y_k_plus_1 - y_k_plus_1_star
 
         delta_x_k_plus_1_post = delta_x_k_plus_1_pre + K @ (
@@ -63,6 +63,62 @@ class LKF:
         P_x_k_plus_1_post = (np.eye(4) - K @ H_k) @ P_x_k_plus_1_pre
         return delta_x_k_plus_1_post, P_x_k_plus_1_post
 
+@dataclass
+class EKF:
+    lt: LinearizedSystem
+    x_hat_zero: np.ndarray
+    P_zero: np.ndarray
+    y_truth: list[np.ndarray]
+    visible_stations: Sequence[Sequence[int]]
+    R: np.ndarray
+    Q: np.ndarray
+    dt: float
+
+    def solve(self):
+        x_hat = np.zeros([len(self.y_truth), 4])
+        P = np.zeros([len(self.y_truth), 4, 4])
+
+        x_hat[0, :] = self.x_hat_zero
+        P[0, :, :] = self.P_zero
+
+        for k in range(len(self.y_truth) - 1):
+            x_hat[k + 1, :], P[k + 1, :, :] = self.step(k, x_hat[k, :], P[k, :, :])
+
+        return x_hat, P
+
+    def step(self, k: int, x_hat_k: np.ndarray, P_k: np.ndarray):
+        y_k_plus_1 = self.y_truth[k + 1]
+        t_k = k * self.dt
+        visible_stations = self.visible_stations[k + 1]
+        assert len(visible_stations) == y_k_plus_1.size // 3
+
+        x_k_plus_1_pre = EllipticalTrajectory(x_hat_k).propagate(self.dt)
+
+        F_k = self.lt.F_tilde_at_state(x_k_plus_1_pre, self.dt)
+        Omega_k = self.lt.Omega_tilde(t_k, self.dt)
+
+        P_x_k_plus_1_pre = F_k @ P_k @ F_k.T + Omega_k @ self.Q @ Omega_k.T
+
+        ind = np.zeros(len(self.lt.stations) * 3, dtype=bool)
+        for st in visible_stations:
+            ind[st * 3 : (st + 1) * 3] = True
+        H_k = self.lt.H_tilde_at_state(t_k, x_k_plus_1_pre)[ind, :]
+
+        y_k_plus_1_pre = measurements(
+            x_k_plus_1_pre,
+            [self.lt.stations[i] for i in visible_stations],
+            t_k + self.dt,
+        )
+
+        e_k_plus_1 = y_k_plus_1 - y_k_plus_1_pre
+
+        R_block = np.kron(np.eye(len(visible_stations)), self.R)
+        K = P_x_k_plus_1_pre @ H_k.T @ np.linalg.inv(H_k @ P_x_k_plus_1_pre @ H_k.T + R_block)
+
+        x_k_plus_1_post = x_k_plus_1_pre + K @ e_k_plus_1
+        P_x_k_plus_1_post = (np.eye(4) - K @ H_k) @ P_x_k_plus_1_pre
+        
+        return x_k_plus_1_post, P_x_k_plus_1_post
 
 if __name__ == "__main__":
     from constants import R, dt, nominal_trajectory, station_trajectories

@@ -79,8 +79,7 @@ class LinearizedSystem:
     nominal: CircularTrajectory
     stations: Sequence[CircularTrajectory]
 
-    def A(self, t: float):
-        x = self.nominal.state_at(t)
+    def A_at_state(self, x: np.ndarray):
         r = np.sqrt(x[0] ** 2 + x[2] ** 2)
         r5 = r**5
 
@@ -94,16 +93,18 @@ class LinearizedSystem:
 
         return A
 
+    def A(self, t: float):
+        return self.A_at_state(self.nominal.state_at(t))
+
     def B(self, t: float):
         B = np.zeros([4, 2])
         B[1, 0] = 1
         B[3, 1] = 1
         return B
 
-    def C_i(self, i: int, t: float):
+    def C_i_at_state(self, i: int, t: float, x: np.ndarray):
         C = np.zeros([3, 4])
 
-        x = self.nominal.state_at(t)
         x_s = self.stations[i].state_at(t)
         rho = np.sqrt((x[0] - x_s[0]) ** 2 + (x[2] - x_s[2]) ** 2)
         N = (x[0] - x_s[0]) * (x[1] - x_s[1]) + (x[2] - x_s[2]) * (x[3] - x_s[3])
@@ -120,11 +121,17 @@ class LinearizedSystem:
 
         return C
 
+    def C_i(self, i: int, t: float):
+        return self.C_i_at_state(i, t, self.nominal.state_at(t))
+        
     def D_i(self, i: int, t: float):
         return np.zeros([3, 2])
 
     def C(self, t: float):
         return np.vstack([self.C_i(i, t) for i in range(len(self.stations))])
+
+    def C_at_state(self, t: float, x: np.ndarray):
+        return np.vstack([self.C_i_at_state(i, t, x) for i in range(len(self.stations))])
 
     def D(self, t: float):
         return np.zeros([3 * len(self.stations), 2])
@@ -150,6 +157,9 @@ class LinearizedSystem:
     def G_tilde(self, t: float, dt: float):
         return dt * self.B(t)
 
+    def F_tilde_at_state(self, x: np.ndarray, dt: float):
+        return np.eye(4) + dt * self.A_at_state(x)
+
     def Omega(self, t: float):
         return self.B(t)
 
@@ -161,6 +171,9 @@ class LinearizedSystem:
 
     def H_tilde(self, t: float):
         return self.C(t)
+
+    def H_tilde_at_state(self, t: float, x: np.ndarray):
+        return self.C_at_state(t, x)
 
 
 def measurement(
