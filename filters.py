@@ -26,7 +26,9 @@ class LKF:
         P[0, :, :] = self.P_zero
 
         for k in range(len(self.y_truth) - 1):
-            delta_x_hat[k + 1, :], P[k + 1, :, :] = self.lkf_step(k, delta_x_hat[k, :], P[k, :, :])
+            delta_x_hat[k + 1, :], P[k + 1, :, :] = self.lkf_step(
+                k, delta_x_hat[k, :], P[k, :, :]
+            )
 
         return delta_x_hat, P
 
@@ -65,7 +67,9 @@ class LKF:
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     from constants import R, dt, nominal_trajectory, station_trajectories
+    from problem3 import plot_states
 
     ts = np.arange(0, 14000, step=dt)
 
@@ -97,8 +101,26 @@ if __name__ == "__main__":
         y_truth=all_measurements,
         visible_stations=visible_stations,
         R=R,
-        Q=np.eye(2),
+        Q=np.eye(2) * 1e1,
         dt=dt,
     )
 
-    print(lkf.solve())
+    x_hat, P = lkf.solve()
+
+    sigma = np.sqrt(np.array([np.diag(p) for p in P]))
+
+    plot_states(
+        [x_hat, x_hat + 2 * sigma, x_hat - 2 * sigma, x_pert_nonlinear - x_nom],
+        ts,
+        # ylables=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
+        # xlabel="Time [s]",
+        # legend_labels=xs_labels,
+        kwargs=[
+            {"linestyle": "-", "color": "tab:blue"},
+            {"linestyle": "--", "color": "tab:blue"},
+            {"linestyle": "--", "color": "tab:blue"},
+            {"color": "tab:orange"},
+        ],
+    )
+
+    plt.show()

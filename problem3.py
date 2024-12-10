@@ -29,7 +29,7 @@ def plot_states(
     axs=None,
 ):
     if axs is None:
-        fig, axs = plt.subplots(xs[0].shape[1])
+        fig, axs = plt.subplots(xs[0].shape[1], sharex=True)
 
     if t is None:
         t = np.arange(xs[0].shape[1])
