@@ -123,7 +123,7 @@ class LinearizedSystem:
 
     def C_i(self, i: int, t: float):
         return self.C_i_at_state(i, t, self.nominal.state_at(t))
-        
+
     def D_i(self, i: int, t: float):
         return np.zeros([3, 2])
 
@@ -131,7 +131,9 @@ class LinearizedSystem:
         return np.vstack([self.C_i(i, t) for i in range(len(self.stations))])
 
     def C_at_state(self, t: float, x: np.ndarray):
-        return np.vstack([self.C_i_at_state(i, t, x) for i in range(len(self.stations))])
+        return np.vstack(
+            [self.C_i_at_state(i, t, x) for i in range(len(self.stations))]
+        )
 
     def D(self, t: float):
         return np.zeros([3 * len(self.stations), 2])
@@ -208,7 +210,8 @@ def measurements(
 def is_station_visible(x: Sequence[float], x_s: Sequence[float]):
     psi = measurement(x, x_s)[2]
     theta = np.arctan2(x_s[2], x_s[0])
-    return -np.pi / 2 + theta < psi < np.pi / 2 + theta
+    theta_max = np.pi / 2  # * 10
+    return -theta_max + theta < psi < theta_max + theta
 
 
 def mask_non_visible(
