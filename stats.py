@@ -69,7 +69,7 @@ if __name__ == "__main__":
             Q=np.eye(2) * 1e1,
             dt=dt,
         )
-        x_tot, P = ekf.solve()
+        x_tot, P, S = ekf.solve()
 
         eps = stat_eps(x_tot - x_pert_nonlinear, P)
         eps_all.append(eps)

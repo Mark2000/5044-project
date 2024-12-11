@@ -50,7 +50,7 @@ class LKF:
     def step(self, k: int, delta_x_hat_k: np.ndarray, P_k: np.ndarray):
         y_k_plus_1 = self.y_truth[k + 1]
         t_k = k * self.dt
-        t_k_plus_1 = (k + 1) * dt
+        t_k_plus_1 = (k + 1) * self.dt
 
         F_k = self.lt.F_tilde(t_k, self.dt)
         Omega_k = self.lt.Omega_tilde(t_k, self.dt)
@@ -121,7 +121,7 @@ class EKF:
     def step(self, k: int, x_hat_k: np.ndarray, P_k: np.ndarray):
         y_k_plus_1 = self.y_truth[k + 1]
         t_k = k * self.dt
-        t_k_plus_1 = (k + 1) * dt
+        t_k_plus_1 = (k + 1) * self.dt
 
         x_k_plus_1_pre = EllipticalTrajectory(x_hat_k).propagate([0, self.dt])[1, :]
 
@@ -134,7 +134,7 @@ class EKF:
 
         y_k_plus_1_pre = measurements(
             x_k_plus_1_pre,
-            [self.lt.stations[i] for i in visible_stations[k + 1]],
+            [self.lt.stations[i] for i in self.visible_stations[k + 1]],
             t_k_plus_1,
         )
 
