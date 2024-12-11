@@ -66,7 +66,7 @@ if __name__ == "__main__":
             y_truth=all_measurements,
             visible_stations=visible_stations,
             R=R,
-            Q=np.eye(2) * 1e1,
+            Q=np.eye(2) * 1e2,
             dt=dt,
         )
         x_tot, P, S = ekf.solve()
@@ -75,23 +75,32 @@ if __name__ == "__main__":
         eps_all.append(eps)
 
     eps_all = np.array(eps_all)
+    eps_mean = np.mean(eps_all, axis=0)
 
     alpha = 0.05
     n = 4  # dimension
+
     r1 = chi2.ppf(alpha / 2, df=N * n) / N
     r2 = chi2.ppf(1 - alpha / 2, df=N * n) / N
 
-    statistic = np.sum(np.logical_and(r1 < eps_all, eps_all < r2)) / np.prod(
-        eps_all.shape
-    )
+    statistic = np.sum(np.logical_and(r1 < eps_mean, eps_mean < r2)) / len(eps_mean)
     print(statistic)
 
-    plt.axhline(r1, color="r", linestyle="--")
-    plt.axhline(r2, color="r", linestyle="--")
-    plt.title(f"NEES statistic: {statistic*100:.2f}% (want: {(1-alpha)*100:.2f} %)")
+    fig, axs = plt.subplots(2, 1)
 
-    for eps in eps_all:
-        plt.plot(ts, eps, ".")
+    ax = axs[0]
+    ax.axhline(r1, color="r", linestyle="--")
+    ax.axhline(r2, color="r", linestyle="--")
+    ax.set_title(f"NEES statistic: {statistic*100:.2f}% (want: {(1-alpha)*100:.2f} %)")
 
-    plt.ylim([0, r2 * 2])
+    ax.plot(ts, eps_mean, ".")
+    ax.set_ylim([0, r2 * 2])
+
+    bins = np.linspace(0, r2 * 5, 100)
+
+    ax = axs[1]
+    _, bins, _ = ax.hist(eps_mean.flatten(), bins=bins, density=True)
+
+    ax.plot(bins, chi2.pdf(bins * N, df=N * n) * N)
+
     plt.show()

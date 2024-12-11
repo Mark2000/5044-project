@@ -1,8 +1,10 @@
 from typing import *
-from constants import *
+
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
+from constants import *
+
 
 def plot_orbits(xs: Sequence[np.ndarray], ax=None):
     if ax is None:
@@ -38,9 +40,6 @@ def plot_states(
         if ylables:
             ax.set_ylabel(ylables[i])
 
-        if ax is not axs[-1]:
-            ax.set_xticklabels([])
-
     if xlabel:
         axs[-1].set_xlabel(xlabel)
 
@@ -65,7 +64,9 @@ def plot_measurements(
     n_stations = y.shape[1] // 3
     ys = [y[:, i * 3 : (i + 1) * 3] for i in range(n_stations)]
     cmap = plt.get_cmap("tab20")
-    kwargs = [{"marker": "o", "color": cmap(i), "linestyle": ""} for i in range(n_stations)]
+    kwargs = [
+        {"marker": "o", "color": cmap(i), "linestyle": ""} for i in range(n_stations)
+    ]
     return plot_states(
         ys,
         t,

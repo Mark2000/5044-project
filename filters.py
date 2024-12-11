@@ -168,7 +168,7 @@ if __name__ == "__main__":
     ts = np.arange(0, 14000, step=dt)
 
     x_nom = np.array([nominal_trajectory.state_at(t) for t in ts])
-    x_pert = np.array([0, 0.075, 0, -0.021]) * 100
+    x_pert = np.array([0, 0.075, 0, -0.021])
     x_pert_nonlinear = EllipticalTrajectory(x_nom[0, :] + x_pert).propagate(
         ts, use_process_noise=True
     )
@@ -205,7 +205,7 @@ if __name__ == "__main__":
             y_truth=all_measurements,
             visible_stations=visible_stations,
             R=R,
-            Q=np.eye(2) * 1e0,
+            Q=np.eye(2) * 1e2,
             dt=dt,
         )
         x_hat, P, S = lkf.solve()
@@ -218,7 +218,7 @@ if __name__ == "__main__":
             y_truth=all_measurements,
             visible_stations=visible_stations,
             R=R,
-            Q=np.eye(2) * 1e0,
+            Q=np.eye(2) * 1e2,
             dt=dt,
         )
         x_tot, P, S = ekf.solve()

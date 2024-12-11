@@ -77,8 +77,13 @@ def part_1_ex_3():
     xs_labels = ["Nominal", "Perturbed (Non-Lin)", "Perturbed (Lin)"]
     ys_1 = [y_nom[:, :3], y_pert_nonlinear[:, :3], y_pert_linear[:, :3]]
 
-    # ax, lines = plot_orbits(xs)
     # ax.legend(lines, xs_labels )
+    plot_states(
+        [np.array([st.state_at(t) for t in ts]) for st in station_trajectories]
+        + [x_nom],
+        ts,
+        legend_labels=[f"gs{i}" for i in range(len(station_trajectories))] + ["Sat."],
+    )
 
     plot_states(
         [x_hat],

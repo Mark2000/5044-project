@@ -40,7 +40,7 @@ class CircularTrajectory:
 @dataclass
 class EllipticalTrajectory:
     x0: Sequence[float]
-    Q: Optional[np.ndarray] = field(default_factory= lambda: np.eye(2) * 1e-10)
+    Q: Optional[np.ndarray] = field(default_factory=lambda: np.eye(2) * 1e-10)
 
     def propagate(self, t: np.ndarray, use_process_noise: bool = False):
         def orbit_dynamics(t, state, process_noise_value=None):
@@ -210,8 +210,12 @@ def measurements(
 def is_station_visible(x: Sequence[float], x_s: Sequence[float]):
     psi = measurement(x, x_s)[2]
     theta = np.arctan2(x_s[2], x_s[0])
-    theta_max = np.pi / 2  # * 10
-    return -theta_max + theta < psi < theta_max + theta
+    theta_max = np.pi / 2
+
+    for offset in [-2 * np.pi, 0, 2 * np.pi]:
+        if -theta_max + theta < psi + offset < theta_max + theta:
+            return True
+    return False
 
 
 def mask_non_visible(
