@@ -70,6 +70,7 @@ class LKF:
         S_k_plus_1 = H_k_plus_1 @ P_x_k_plus_1_pre @ H_k_plus_1.T + R_k_plus_1
         K_k_plus_1 = P_x_k_plus_1_pre @ H_k_plus_1.T @ np.linalg.inv(S_k_plus_1)
         delta_y_k_plus_1 = y_k_plus_1 - y_k_plus_1_star
+        # delta_y_k_plus_1[2::3] = (delta_y_k_plus_1[2::3] + np.pi) % (2 * np.pi) - np.pi
 
         delta_x_k_plus_1_post = delta_x_k_plus_1_pre + K_k_plus_1 @ (
             delta_y_k_plus_1 - H_k_plus_1 @ delta_x_k_plus_1_pre
@@ -139,6 +140,7 @@ class EKF:
         )
 
         e_k_plus_1 = y_k_plus_1 - y_k_plus_1_pre
+        e_k_plus_1[2::3] = (e_k_plus_1[2::3] + np.pi) % (2 * np.pi) - np.pi
 
         R_k_plus_1 = self.Rk(k + 1)
         S_k_plus_1 = H_k_plus_1 @ P_x_k_plus_1_pre @ H_k_plus_1.T + R_k_plus_1
