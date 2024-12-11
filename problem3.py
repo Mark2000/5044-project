@@ -1,10 +1,9 @@
 from typing import *
 
+import numpy.testing as npt
 from constants import *
 from dynamics import *
 from plot import *
-
-import numpy.testing as npt
 
 
 def test_part_1():
