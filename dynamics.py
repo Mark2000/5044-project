@@ -8,8 +8,6 @@ import scipy.linalg
 from scipy.integrate import solve_ivp
 
 mu = 398600
-R_E = 6378
-omega_E = 2 * np.pi / 86400
 
 
 @dataclass

@@ -1,7 +1,13 @@
 from dataclasses import dataclass
+from typing import Sequence
 
 import numpy as np
-from dynamics import *
+from dynamics import (
+    EllipticalTrajectory,
+    LinearizedSystem,
+    is_station_visible,
+    measurements,
+)
 
 
 @dataclass
@@ -22,6 +28,7 @@ class LKF:
         delta_x_hat = np.zeros([len(self.y_truth), 4])
         P = np.zeros([len(self.y_truth), 4, 4])
         S = []
+        e_NIS = []
 
         delta_x_hat[0, :] = self.delta_x_hat_zero
         P[0, :, :] = self.P_zero
@@ -29,14 +36,16 @@ class LKF:
         H_0 = self.Hk(0)
         R_0 = self.Rk(0)
         S.append(H_0 @ self.P_zero @ H_0.T + R_0)
+        e_NIS.append(np.zeros_like(self.y_truth[0]))
 
         for k in range(len(self.y_truth) - 1):
-            delta_x_hat[k + 1, :], P[k + 1, :, :], S_k_plus_1 = self.step(
-                k, delta_x_hat[k, :], P[k, :, :]
+            delta_x_hat[k + 1, :], P[k + 1, :, :], S_k_plus_1, delta_y_k_plus_1 = (
+                self.step(k, delta_x_hat[k, :], P[k, :, :])
             )
             S.append(S_k_plus_1)
+            e_NIS.append(delta_y_k_plus_1)
 
-        return delta_x_hat, P, S
+        return delta_x_hat, P, S, e_NIS
 
     def Hk(self, k: int):
         ind = np.zeros(len(self.lt.stations) * 3, dtype=bool)
@@ -70,13 +79,13 @@ class LKF:
         S_k_plus_1 = H_k_plus_1 @ P_x_k_plus_1_pre @ H_k_plus_1.T + R_k_plus_1
         K_k_plus_1 = P_x_k_plus_1_pre @ H_k_plus_1.T @ np.linalg.inv(S_k_plus_1)
         delta_y_k_plus_1 = y_k_plus_1 - y_k_plus_1_star
-        # delta_y_k_plus_1[2::3] = (delta_y_k_plus_1[2::3] + np.pi) % (2 * np.pi) - np.pi
+        delta_y_k_plus_1[2::3] = (delta_y_k_plus_1[2::3] + np.pi) % (2 * np.pi) - np.pi
 
         delta_x_k_plus_1_post = delta_x_k_plus_1_pre + K_k_plus_1 @ (
             delta_y_k_plus_1 - H_k_plus_1 @ delta_x_k_plus_1_pre
         )
         P_x_k_plus_1_post = (np.eye(4) - K_k_plus_1 @ H_k_plus_1) @ P_x_k_plus_1_pre
-        return delta_x_k_plus_1_post, P_x_k_plus_1_post, S_k_plus_1
+        return delta_x_k_plus_1_post, P_x_k_plus_1_post, S_k_plus_1, delta_y_k_plus_1
 
 
 @dataclass
@@ -94,6 +103,7 @@ class EKF:
         x_hat = np.zeros([len(self.y_truth), 4])
         P = np.zeros([len(self.y_truth), 4, 4])
         S = []
+        e_NIS = []
 
         x_hat[0, :] = self.x_hat_zero
         P[0, :, :] = self.P_zero
@@ -101,14 +111,16 @@ class EKF:
         H_0 = self.Hk(0, x_hat[0, :])
         R_0 = self.Rk(0)
         S.append(H_0 @ self.P_zero @ H_0.T + R_0)
+        e_NIS.append(self.y_truth[0] - H_0 @ x_hat[0, :])
 
         for k in range(len(self.y_truth) - 1):
-            x_hat[k + 1, :], P[k + 1, :, :], S_k_plus_1 = self.step(
+            x_hat[k + 1, :], P[k + 1, :, :], S_k_plus_1, e_k_plus_1 = self.step(
                 k, x_hat[k, :], P[k, :, :]
             )
             S.append(S_k_plus_1)
+            e_NIS.append(e_k_plus_1)
 
-        return x_hat, P, S
+        return x_hat, P, S, e_NIS
 
     def Hk(self, k: int, x_k: np.ndarray):
         ind = np.zeros(len(self.lt.stations) * 3, dtype=bool)
@@ -149,7 +161,7 @@ class EKF:
         x_k_plus_1_post = x_k_plus_1_pre + K_k_plus_1 @ e_k_plus_1
         P_x_k_plus_1_post = (np.eye(4) - K_k_plus_1 @ H_k_plus_1) @ P_x_k_plus_1_pre
 
-        return x_k_plus_1_post, P_x_k_plus_1_post, S_k_plus_1
+        return x_k_plus_1_post, P_x_k_plus_1_post, S_k_plus_1, e_k_plus_1
 
 
 if __name__ == "__main__":
@@ -157,31 +169,23 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     from constants import (  # visible_stations_truth,; y_truth,
+        P0_true,
+        Q_tuned_ekf,
+        Q_tuned_lkf,
         R,
         dt,
-        lt,
+        dx0_bar_true,
         nominal_trajectory,
         station_trajectories,
+        ts,
     )
     from problem3 import plot_states
-
-    # R *= 1e-8
-
-    ts = np.arange(0, 14000, step=dt)
 
     x_nom = np.array([nominal_trajectory.state_at(t) for t in ts])
     x_pert = np.array([0, 0.075, 0, -0.021])
     x_pert_nonlinear = EllipticalTrajectory(x_nom[0, :] + x_pert).propagate(
         ts, use_process_noise=True
     )
-
-    # x_hat = np.zeros_like(x_nom)
-    # x_hat[0, :] = [0, 0.075, 0, -0.021]  # initial perturbation
-    # for i in range(x_hat.shape[0] - 1):
-    #     F, G = lt.F_G(ts[i], dt)
-    #     x_hat[i + 1, :] = F @ x_hat[i, :]
-
-    # x_pert_nonlinear = x_nom + x_hat  # Use linearized dynamics
 
     visible_stations = [
         [
@@ -202,28 +206,28 @@ if __name__ == "__main__":
     if filter == "lkf":
         lkf = LKF(
             lt=LinearizedSystem(nominal_trajectory, station_trajectories),
-            delta_x_hat_zero=0 * x_pert,
-            P_zero=np.eye(4) * 1000,
+            delta_x_hat_zero=dx0_bar_true,
+            P_zero=P0_true,
             y_truth=all_measurements,
             visible_stations=visible_stations,
             R=R,
-            Q=np.eye(2) * 1e2,
+            Q=Q_tuned_lkf,
             dt=dt,
         )
-        x_hat, P, S = lkf.solve()
+        x_hat, P, _, _ = lkf.solve()
 
     elif filter == "ekf":
         ekf = EKF(
             lt=LinearizedSystem(nominal_trajectory, station_trajectories),
-            x_hat_zero=0 * x_pert + nominal_trajectory.state_at(0),
-            P_zero=np.eye(4) * 1000,
+            x_hat_zero=dx0_bar_true + nominal_trajectory.state_at(0),
+            P_zero=P0_true,
             y_truth=all_measurements,
             visible_stations=visible_stations,
             R=R,
-            Q=np.eye(2) * 1e2,
+            Q=Q_tuned_ekf,
             dt=dt,
         )
-        x_tot, P, S = ekf.solve()
+        x_tot, P, _, _ = ekf.solve()
         x_hat = x_tot - x_nom
 
     sigma = np.sqrt(np.array([np.diag(p) for p in P]))

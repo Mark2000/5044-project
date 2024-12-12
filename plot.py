@@ -20,7 +20,7 @@ def plot_orbits(xs: Sequence[np.ndarray], ax=None):
 def plot_states(
     xs: Sequence[np.ndarray],
     t: Optional[np.ndarray] = None,
-    ylables: Sequence[str] = [],
+    ylabels: Sequence[str] = [],
     xlabel: str = "",
     legend_labels: Sequence[str] = [],
     kwargs: Sequence[dict[str, Any]] = [],
@@ -37,8 +37,8 @@ def plot_states(
         for j, x in enumerate(xs):
             lines[i, j] = axs[i].plot(t, x[:, i], **(kwargs[j] if kwargs else {}))[0]
 
-        if ylables:
-            ax.set_ylabel(ylables[i])
+        if ylabels:
+            ax.set_ylabel(ylabels[i])
 
     if xlabel:
         axs[-1].set_xlabel(xlabel)

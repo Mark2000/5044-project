@@ -88,7 +88,7 @@ def part_1_ex_3():
     plot_states(
         [x_hat],
         ts,
-        ylables=[f"$x_{i}$" for i in range(1, 5)],
+        ylabels=[f"$x_{i}$" for i in range(1, 5)],
         xlabel="Time [s]",
         legend_labels=[r"$\bar{x}$"],
     )
@@ -96,7 +96,7 @@ def part_1_ex_3():
     plot_states(
         xs,
         ts,
-        ylables=[f"$x_{i}$" for i in range(1, 5)],
+        ylabels=[f"$x_{i}$" for i in range(1, 5)],
         xlabel="Time [s]",
         legend_labels=xs_labels,
         kwargs=[{"linestyle": "-"}, {"linestyle": "--"}, {"linestyle": ":"}],
@@ -105,7 +105,7 @@ def part_1_ex_3():
     plot_states(
         ys_1,
         ts,
-        ylables=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
+        ylabels=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
         xlabel="Time [s]",
         legend_labels=xs_labels,
         kwargs=[{"linestyle": "-"}, {"linestyle": "--"}, {"linestyle": ":"}],
@@ -114,7 +114,7 @@ def part_1_ex_3():
     axs, _ = plot_states(
         [(x_pert_nonlinear - x_pert_linear)],
         ts,
-        ylables=[f"$x_{i}$" for i in range(1, 5)],
+        ylabels=[f"$x_{i}$" for i in range(1, 5)],
         xlabel="Time [s]",
     )
     axs[0].figure.suptitle(r"$(x_{nonlin} - x_{lin})$")
@@ -122,7 +122,7 @@ def part_1_ex_3():
     axs, _ = plot_states(
         [(y_pert_nonlinear[:, :3] - y_pert_linear[:, :3])],
         ts,
-        ylables=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
+        ylabels=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
         xlabel="Time [s]",
     )
     axs[0].figure.suptitle(r"$(x_{nonlin} - x_{lin})$")
