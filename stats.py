@@ -15,7 +15,7 @@ from dynamics import (
     is_station_visible,
     measurements,
 )
-from filters import EKF, LKF
+from filters import EKF, LKF, UKF
 from joblib import Parallel, delayed
 from scipy.stats import entropy, gaussian_kde
 from scipy.stats.distributions import chi2
@@ -70,6 +70,19 @@ def run_test(x_pert, Q, filter="ekf", ts=ts):
             dt=dt,
         )
         x_tot, P, S, e_NIS = ekf.solve()
+
+    if filter == "ukf":
+        ukf = UKF(
+            lt=LinearizedSystem(nominal_trajectory, station_trajectories),
+            x_hat_zero=nominal_trajectory.state_at(0) + dx0_bar_true,
+            P_zero=P0_true,
+            y_truth=all_measurements,
+            visible_stations=visible_stations,
+            R=R,
+            Q=Q,
+            dt=dt,
+        )
+        x_tot, P, S, e_NIS = ukf.solve()
 
     if filter == "lkf":
         lkf = LKF(
@@ -155,7 +168,7 @@ def plot_test(ts, eps, alpha=0.05, N=1, n=4, test_name=None):
 
 
 if __name__ == "__main__":
-    from constants import P0_true, Q_tuned_ekf, Q_tuned_lkf, dx0_bar_true, ts
+    from constants import P0_true, Q_tuned_ekf, Q_tuned_lkf, Q_tuned_ukf, Q_truth, dx0_bar_true, ts
 
     N = 48
     qs = np.logspace(-11, 4, 8)

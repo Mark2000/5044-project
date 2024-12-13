@@ -16,7 +16,7 @@ station_trajectories = [
 ]
 lt = LinearizedSystem(nominal_trajectory, station_trajectories)
 R = np.diag([0.01, 1, 0.01])
-
+Q_truth = np.eye(2) * 1e-10
 
 # Data
 # raw_ydata = np.loadtxt("ydata.csv", delimiter=",")
@@ -27,6 +27,7 @@ R = np.diag([0.01, 1, 0.01])
 # Filters
 Q_tuned_lkf = np.eye(2) * 1e0
 Q_tuned_ekf = np.eye(2) * 1e-8
+Q_tuned_ukf = np.eye(2) * 1e-8
 
 # Initial Distributions
 dx0_bar_true = np.zeros(4)

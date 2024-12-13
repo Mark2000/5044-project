@@ -163,6 +163,131 @@ class EKF:
 
         return x_k_plus_1_post, P_x_k_plus_1_post, S_k_plus_1, e_k_plus_1
 
+@dataclass
+class UKF:
+    lt: LinearizedSystem
+    x_hat_zero: np.ndarray
+    P_zero: np.ndarray
+    y_truth: list[np.ndarray]
+    visible_stations: Sequence[Sequence[int]]
+    R: np.ndarray
+    Q: np.ndarray
+    dt: float
+    kappa: float = 0
+    alpha: float = 1
+    beta: float = 2
+
+    def solve(self):
+        x_hat = np.zeros([len(self.y_truth), 4])
+        P = np.zeros([len(self.y_truth), 4, 4])
+        S = []
+        e_NIS = []
+
+        x_hat[0, :] = self.x_hat_zero
+        P[0, :, :] = self.P_zero
+
+        S.append(np.eye(3))
+        e_NIS.append(np.zeros(3))
+
+        for k in range(len(self.y_truth) - 1):
+            x_hat[k + 1, :], P[k + 1, :, :], S_k_plus_1, e_k_plus_1 = self.step(
+                k, x_hat[k, :], P[k, :, :]
+            )
+            S.append(S_k_plus_1)
+            e_NIS.append(e_k_plus_1)
+
+        return x_hat, P, S, e_NIS
+
+    def Rk(self, k: int):
+        return np.kron(np.eye(len(self.visible_stations[k])), self.R)
+
+    def step(self, k: int, x_hat_k: np.ndarray, P_k: np.ndarray):
+        d = x_hat_k.size
+        lambda_ = self.alpha**2 * (d + self.kappa) - d
+
+        y_k_plus_1 = self.y_truth[k + 1]
+        t_k = k * self.dt
+        t_k_plus_1 = (k + 1) * self.dt
+
+        Omega_k = self.lt.Omega_tilde(t_k, self.dt)
+        R_k_plus_1 = self.Rk(k+1)
+
+        weights_c = np.zeros(2*d+1)
+        weights_m = np.zeros(2*d+1)
+
+        for i in range(2*d+1):
+            if i == 0:
+                weights_m[i] = lambda_ / (d + lambda_)
+                weights_c[i] = weights_m[i] + 1 - self.alpha**2 + self.beta
+            else:
+                weights_m[i] = 1 / (2*(d + lambda_))
+                weights_c[i] = weights_m[i]
+
+        def sigmaProp(x, P, fun):
+            
+            chol_P_k = np.linalg.cholesky(P)
+
+            samples = []
+            for i in range(2*d+1):
+                if i == 0:
+                    sample_pre = x
+                else:
+                    j = i
+                    if j >= d + 1:
+                        j -= d
+                    S_k_j_T = chol_P_k[:, j-1]
+
+                    if i <= d:
+                        sample_pre = x + np.sqrt(d+lambda_)*S_k_j_T 
+                    else:
+                        sample_pre = x - np.sqrt(d+lambda_)*S_k_j_T 
+
+                samples.append(fun(sample_pre))
+
+            return samples
+        
+        def getMean(samples):
+            mean = np.zeros_like(samples[0])
+            for i in range(2*d+1):
+                mean += weights_m[i] * samples[i]
+            return mean
+        
+        def getCov(ini, samples_a, mean_a, samples_b, mean_b):
+            cov = np.copy(ini)
+            for i in range(2*d+1):
+                cov += weights_c[i] * np.outer(samples_a[i] - mean_a, samples_b[i] - mean_b)       
+
+            return cov
+
+        x_samples = sigmaProp(
+            x_hat_k, P_k, 
+            lambda x: EllipticalTrajectory(x).propagate([0, self.dt])[1, :],
+        )
+        x_k_plus_1_pre = getMean(x_samples)
+        P_x_k_plus_1_pre = getCov(Omega_k @ self.Q @ Omega_k.T, x_samples, x_k_plus_1_pre, x_samples, x_k_plus_1_pre)
+
+        y_samples = sigmaProp(
+            x_k_plus_1_pre, P_x_k_plus_1_pre, 
+            lambda x: measurements(
+                x,
+                [self.lt.stations[i] for i in self.visible_stations[k + 1]],
+                t_k_plus_1,
+            ),
+        )
+        y_k_plus_1_pre = getMean(y_samples)
+        P_y_k_plus_1 = getCov(R_k_plus_1, y_samples, y_k_plus_1_pre, y_samples, y_k_plus_1_pre)
+
+        P_xy_k_plus_1 = getCov(np.zeros([d, R_k_plus_1.shape[0]]), x_samples, x_k_plus_1_pre, y_samples, y_k_plus_1_pre)
+
+        e_k_plus_1 = y_k_plus_1 - y_k_plus_1_pre
+        e_k_plus_1[2::3] = (e_k_plus_1[2::3] + np.pi) % (2 * np.pi) - np.pi
+
+        K_k_plus_1 = P_xy_k_plus_1 @ np.linalg.inv(P_y_k_plus_1)
+
+        x_k_plus_1_post = x_k_plus_1_pre + K_k_plus_1 @ e_k_plus_1
+        P_x_k_plus_1_post = P_x_k_plus_1_pre - K_k_plus_1 @ P_y_k_plus_1 @ K_k_plus_1.T
+
+        return x_k_plus_1_post, P_x_k_plus_1_post, P_y_k_plus_1, e_k_plus_1
 
 if __name__ == "__main__":
     import sys
@@ -172,6 +297,7 @@ if __name__ == "__main__":
         P0_true,
         Q_tuned_ekf,
         Q_tuned_lkf,
+        Q_truth,
         R,
         dt,
         dx0_bar_true,
@@ -228,6 +354,20 @@ if __name__ == "__main__":
             dt=dt,
         )
         x_tot, P, _, _ = ekf.solve()
+        x_hat = x_tot - x_nom
+
+    elif filter == "ukf":
+        ukf = UKF(
+            lt=LinearizedSystem(nominal_trajectory, station_trajectories),
+            x_hat_zero=dx0_bar_true + nominal_trajectory.state_at(0),
+            P_zero=P0_true,
+            y_truth=all_measurements,
+            visible_stations=visible_stations,
+            R=R,
+            Q=Q_tuned_ekf,
+            dt=dt,
+        )
+        x_tot, P, _, _ = ukf.solve()
         x_hat = x_tot - x_nom
 
     sigma = np.sqrt(np.array([np.diag(p) for p in P]))
