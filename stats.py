@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from constants import (  # visible_stations_truth,; y_truth,
@@ -168,11 +170,20 @@ def plot_test(ts, eps, alpha=0.05, N=1, n=4, test_name=None):
 
 
 if __name__ == "__main__":
-    from constants import P0_true, Q_tuned_ekf, Q_tuned_lkf, Q_tuned_ukf, Q_truth, dx0_bar_true, ts
+    from constants import (
+        P0_true,
+        Q_truth,
+        Q_tuned_ekf,
+        Q_tuned_lkf,
+        Q_tuned_ukf,
+        dx0_bar_true,
+        ts,
+    )
 
     N = 48
-    qs = np.logspace(-11, 4, 8)
-    filter = "ekf"
+    qs = np.logspace(-12, 8, 11)
+    print(qs)
+    filter = "lkf"
     Q_best = Q_tuned_ekf
 
     kl_NEESs = []
@@ -182,6 +193,16 @@ if __name__ == "__main__":
         eps_NEES, eps_NIS = run_tests(Q=Q, filter=filter, N=N, ts=ts)
         kl_NEESs.append(evaluate_test(eps_NEES, N=N))
         kl_NISs.append(evaluate_test(eps_NIS, N=N))
+
+    data = {
+        "filter": filter,
+        "N": N,
+        "ts": ts,
+        "qs": qs,
+        "kl_NEESs": kl_NEESs,
+        "kl_NISs": kl_NISs,
+    }
+    np.save(Path(__file__).resolve().parent / "dat" / f"stats_{filter}.npy", data)
 
     fig, ax = plt.subplots(1, 1)
     ax.plot(qs, kl_NEESs, label="NEES", marker="o")
