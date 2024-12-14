@@ -9,10 +9,104 @@ from stats import *
 import matplotlib.pyplot as plt
 
 FIGS_FOLDER = "figs"
+os.makedirs(FIGS_FOLDER, exist_ok=True)
 
 state_labels = ["$x$ [km]", r"$\dot{x}$ [km/s]", "y [km]", r"$\dot{y}$ [km/s]"]
 delta_state_labels = [rf"$\Delta$ {i}" for i in state_labels]
 measurement_labels = [r"$\rho$ [km]", r"$\dot{\rho}$ [km/s]", r"$\Phi$ [rad]"]
+
+def part_1_ex_3():
+    ts = np.arange(0, 1400 * dt, step=dt)
+
+    x_nom = np.array([nominal_trajectory.state_at(t) for t in ts])
+    y_nom = np.array(
+        [measurements(x, station_trajectories, t) for t, x in zip(ts, x_nom)]
+    )
+
+    x_hat = np.zeros_like(x_nom)
+    x_hat[0, :] = [0, 0.075, 0, -0.021]  # initial perturbation
+    for i in range(x_hat.shape[0] - 1):
+        F, G = lt.F_G(ts[i], dt)
+        x_hat[i + 1, :] = F @ x_hat[i, :]
+
+    y_hat = np.zeros_like(y_nom)
+    for i in range(x_hat.shape[0]):
+        y_hat[i, :] = lt.H(ts[i]) @ x_hat[i, :]
+
+    x_pert_nonlinear = EllipticalTrajectory(x_nom[0, :] + x_hat[0, :]).propagate(ts)
+    y_pert_nonlinear = np.array(
+        [measurements(x, station_trajectories, t) for t, x in zip(ts, x_pert_nonlinear)]
+    )
+
+    x_pert_linear = x_nom + x_hat
+    y_pert_linear = y_nom + y_hat
+
+    axs, _ = plot_states(
+        [x_pert_nonlinear - x_nom, x_hat],
+        ts,
+        ylabels=delta_state_labels,
+        xlabel="Time [s]",
+        legend_labels=["Non-linear", "Linear"],
+        kwargs=[
+            {"linestyle": "-", "color": "tab:blue"},
+            {"linestyle": "--", "color": "tab:orange"},
+        ],
+    )
+    fig = axs[0].figure
+    fig.suptitle("State Perturbation vs. Time, Nonlinear and Linearized Dynamics Simulation")
+    fig.tight_layout()
+    fig.savefig(f"{FIGS_FOLDER}/part_1_perturbations.pdf")
+
+
+    axs, _ = plot_states(
+        [x_pert_nonlinear - x_nom - x_hat],
+        ts,
+        ylabels=delta_state_labels,
+        xlabel="Time [s]",
+        kwargs=[
+            {"linestyle": "-", "color": "tab:blue"},
+            {"linestyle": "--", "color": "tab:orange"},
+        ],
+    )
+    fig = axs[0].figure
+    fig.suptitle("Linearization Error vs. Time, Nonlinear - Linearized Dynamics Simulation")
+    fig.tight_layout()
+    fig.savefig(f"{FIGS_FOLDER}/part_1_linearization_error.pdf")
+
+
+    masked_y_pert_nonlinear = mask_non_visible(
+        ts, x_pert_nonlinear, y_pert_nonlinear, station_trajectories
+    )
+
+    axs, _ = plot_measurements(
+        masked_y_pert_nonlinear,
+        ts,
+        ylabels=measurement_labels,
+        xlabel="Time [s]",
+    )
+    fig = axs[0].figure
+    fig.suptitle("Measurements vs. Time, Full Nonlinear Dynamics Simulation")
+    fig.tight_layout()
+    fig.savefig(f"{FIGS_FOLDER}/part_1_nonlinear_measurements.pdf")
+
+
+    masked_y_pert_linear = mask_non_visible(
+        ts, x_pert_nonlinear, y_pert_linear, station_trajectories
+    )
+
+    axs, _ = plot_measurements(
+        masked_y_pert_linear,
+        ts,
+        ylabels=measurement_labels,
+        xlabel="Time [s]",
+    )
+    fig = axs[0].figure
+    fig.suptitle("Measurements vs. Time, Linearized Dynamics Simulation")
+    fig.tight_layout()
+    fig.savefig(f"{FIGS_FOLDER}/part_1_linear_measurements.pdf")
+
+
+    # plt.show()
 
 def typical_simulation(filter):
     ts = np.arange(0, 1400 * dt, step=dt)
@@ -80,8 +174,6 @@ def typical_simulation(filter):
         x_hat = x_tot - x_nom
 
     sigma = np.sqrt(np.array([np.diag(p) for p in P]))
-
-    os.makedirs(FIGS_FOLDER, exist_ok=True)
 
     axs, _ = plot_states(
         [x_pert_nonlinear],
@@ -174,6 +266,7 @@ def typical_simulation(filter):
 
 
 if __name__ == "__main__":
-    typical_simulation("lkf")
-    typical_simulation("ekf")
-    typical_simulation("ukf")
+    part_1_ex_3()
+    # typical_simulation("lkf")
+    # typical_simulation("ekf")
+    # typical_simulation("ukf")
