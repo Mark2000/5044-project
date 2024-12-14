@@ -116,27 +116,25 @@ def run_tests(Q, filter="ekf", dx0_bar_true=dx0_bar_true, P0_true=P0_true, N=25,
     return eps_NEES, eps_NIS
 
 
-def evaluate_test(eps, N=1, n=4):
+def test_kl(eps, N=1, n=4):
     max_eps = chi2.ppf(1 - 1e-9, df=N * n) / N * 5
 
     bins = np.linspace(0, max_eps, 2000)
     counts, _ = np.histogram(eps, bins=bins, density=True)
-    # counts[-1] += sum(eps > max_eps)
     counts[-sum(eps > max_eps)] += 1
-    # counts = np.concatenate([counts, np.ones(sum(eps > max_eps))])
     sample_points = bins[:-1] + np.diff(bins) / 2
     theoretical_pdf = chi2.pdf(sample_points * N, df=N * n) * N
 
-    # if sum(eps > max_eps) / len(eps) > 0.2:
-    #     print("WARNING: KL Divergence may be inaccurate due to truncation")
-
-    # fig, ax = plt.subplots(1, 1)
-    # ax.plot(sample_points, counts)
-    # ax.plot(sample_points, theoretical_pdf)
-
     kl_divergence = entropy(counts, theoretical_pdf)
-    # ax.set_title(f"KL Divergence: {kl_divergence}")
     return kl_divergence
+
+
+def test_alpha(eps, alpha=0.05, N=1, n=4):
+    r1 = chi2.ppf(alpha / 2, df=N * n) / N
+    r2 = chi2.ppf(1 - alpha / 2, df=N * n) / N
+
+    statistic = np.sum(np.logical_and(r1 < eps, eps < r2)) / len(eps)
+    return statistic
 
 
 def plot_test(ts, eps, alpha=0.05, N=1, n=4, test_name=None):
@@ -164,9 +162,9 @@ def plot_test(ts, eps, alpha=0.05, N=1, n=4, test_name=None):
     sample_points = bins[:-1] + np.diff(bins) / 2
     theoretical_pdf = chi2.pdf(sample_points * N, df=N * n) * N
     ax.plot(sample_points, theoretical_pdf)
-    ax.set_xlabel(f"KL: {evaluate_test(eps, N, n)}")
+    ax.set_xlabel(f"KL: {test_kl(eps, N, n)}")
 
-    return ax
+    return fig, ax
 
 
 if __name__ == "__main__":
@@ -180,27 +178,34 @@ if __name__ == "__main__":
         ts,
     )
 
-    N = 48
-    qs = np.logspace(-12, 8, 11)
-    print(qs)
+    N = 48  # 12 * 8 for final
+    qs = np.logspace(-12, 8, 11)  # 21 for final
     filter = "lkf"
+    alpha = 0.05
     Q_best = Q_tuned_ekf
 
     kl_NEESs = []
+    stat_NEESs = []
     kl_NISs = []
+    stat_NISs = []
     for q in tqdm(qs):
         Q = np.eye(2) * q
         eps_NEES, eps_NIS = run_tests(Q=Q, filter=filter, N=N, ts=ts)
-        kl_NEESs.append(evaluate_test(eps_NEES, N=N))
-        kl_NISs.append(evaluate_test(eps_NIS, N=N))
+        kl_NEESs.append(test_kl(eps_NEES, N=N))
+        stat_NEESs.append(test_alpha(eps_NEES, N=N, alpha=alpha))
+        kl_NISs.append(test_kl(eps_NIS, N=N))
+        stat_NISs.append(test_alpha(eps_NIS, N=N, alpha=alpha))
 
     data = {
         "filter": filter,
+        "alpha": alpha,
         "N": N,
         "ts": ts,
         "qs": qs,
         "kl_NEESs": kl_NEESs,
         "kl_NISs": kl_NISs,
+        "stat_NEESs": stat_NEESs,
+        "stat_NISs": stat_NISs,
     }
     np.save(Path(__file__).resolve().parent / "dat" / f"stats_{filter}.npy", data)
 

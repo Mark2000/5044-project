@@ -399,23 +399,46 @@ def optimization_plot(path):
     stats = np.load(path, allow_pickle=True).item()
     qs = stats["qs"]
     kl_NEESs = stats["kl_NEESs"]
+    stat_NEESs = stats["stat_NEESs"]
     kl_NISs = stats["kl_NISs"]
+    stat_NISs = stats["stat_NISs"]
     filter = stats["filter"]
+    alpha = stats["alpha"]
 
-    fig, ax = plt.subplots(1, 1)
+    fig, axs = plt.subplots(2, 1, sharex=True)
+    ax = axs[0]
     ax.plot(qs, kl_NEESs, label="NEES", marker="o")
     ax.plot(qs, kl_NISs, label="NIS", marker="o")
     ax.legend()
-    ax.set_xscale("log")
-    ax.set_xlabel("$q$")
     ax.set_ylim(bottom=0)
     ax.set_ylabel("KL Divergence")
+
+    ax = axs[1]
+    ax.plot(qs, 100 * np.array(stat_NEESs), label="NEES", marker="o")
+    ax.plot(qs, 100 * np.array(stat_NISs), label="NIS", marker="o")
+    ax.axhline(100 * (1 - alpha), color="k", linestyle="--")
+    ax.set_ylabel("Consistency [%]")
+    ax.set_ylim(bottom=0, top=100)
+
+    ax.set_xlabel("$q$")
+    ax.set_xscale("log")
 
     fig.savefig(f"{FIGS_FOLDER}/optimization_plot_{filter}.pdf")
 
 
-def consistency_plot():
-    pass  # TODO, see stats.py
+def consistency_plot(filter, N):
+    if filter == "lkf":
+        Q_best = Q_tuned_lkf
+    elif filter == "ekf":
+        Q_best = Q_tuned_ekf
+    elif filter == "ukf":
+        Q_best = Q_tuned_ukf
+    eps_NEES, eps_NIS = run_tests(Q=Q_best, filter=filter, N=N, ts=ts)
+    alpha = 0.05
+    fig, ax = plot_test(ts, eps_NEES, test_name="NEES", n=4, N=N, alpha=alpha)
+    fig.savefig(f"{FIGS_FOLDER}/{filter}_NEES.pdf")
+    fig, ax = plot_test(ts, eps_NIS, test_name="NIS", n=4, N=N, alpha=alpha)
+    fig.savefig(f"{FIGS_FOLDER}/{filter}_NIS.pdf")
 
 
 if __name__ == "__main__":
@@ -427,3 +450,8 @@ if __name__ == "__main__":
     compare_filters_on_truth("ekf", "ukf")
     optimization_plot(Path(__file__).resolve().parent / "dat" / f"stats_lkf.npy")
     optimization_plot(Path(__file__).resolve().parent / "dat" / f"stats_ekf.npy")
+    # optimization_plot(Path(__file__).resolve().parent / "dat" / f"stats_ukf.npy")
+    N = 48  # More for final
+    consistency_plot("lkf", N)
+    consistency_plot("ekf", N)
+    # consistency_plot("ukf", N)
