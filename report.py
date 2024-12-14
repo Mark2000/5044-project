@@ -264,9 +264,117 @@ def typical_simulation(filter):
 
     # plt.show()
 
+def filter_on_truth_data(filter, states_axs, twosigma_axs):
+    ts = np.arange(0, len(y_truth) * dt, step=dt)
+    x_nom = np.array([nominal_trajectory.state_at(t) for t in ts])
+    
+    if filter == "lkf":
+        lkf = LKF(
+            lt=LinearizedSystem(nominal_trajectory, station_trajectories),
+            delta_x_hat_zero=dx0_bar_true,
+            P_zero=P0_true,
+            y_truth=y_truth,
+            visible_stations=visible_stations_truth,
+            R=R,
+            Q=Q_tuned_lkf,
+            dt=dt,
+        )
+        x_hat, P, _, _ = lkf.solve()
+        x_tot = x_hat + x_nom
+
+    elif filter == "ekf":
+        ekf = EKF(
+            lt=LinearizedSystem(nominal_trajectory, station_trajectories),
+            x_hat_zero=dx0_bar_true + nominal_trajectory.state_at(0),
+            P_zero=P0_true,
+            y_truth=y_truth,
+            visible_stations=visible_stations_truth,
+            R=R,
+            Q=Q_tuned_ekf,
+            dt=dt,
+        )
+        x_tot, P, _, _ = ekf.solve()
+        x_hat = x_tot - x_nom
+
+    elif filter == "ukf":
+        ukf = UKF(
+            lt=LinearizedSystem(nominal_trajectory, station_trajectories),
+            x_hat_zero=dx0_bar_true + nominal_trajectory.state_at(0),
+            P_zero=P0_true,
+            y_truth=y_truth,
+            visible_stations=visible_stations_truth,
+            R=R,
+            Q=Q_tuned_ukf,
+            dt=dt,
+        )
+        x_tot, P, _, _ = ukf.solve()
+        x_hat = x_tot - x_nom
+
+    sigma = np.sqrt(np.array([np.diag(p) for p in P]))
+    
+    plot_states(
+        [x_tot],
+        ts,
+        ylabels=state_labels,
+        xlabel="Time [s]",
+        # legend_labels=xs_labels,
+        kwargs=[
+            {"linestyle": "-", "color": "tab:blue"},
+            {"linestyle": "--", "color": "tab:purple"},
+            {"linestyle": "--", "color": "tab:purple"},
+            {"color": "tab:orange"},
+        ],
+        axs=states_axs
+    )
+
+    zoom_region_and_inset_bounds = None
+    if filter != "lkf":
+        i_min = len(ts) // 3
+        i_max = len(ts) // 2
+        zoom_region_and_inset_bounds = [
+            (
+                (ts[i_min], ts[i_max], 0, 2.5*sigma[i_min:i_max, j].max()),
+                (0.4, 0.4, 0.5, 0.5)
+            )
+            for j in range(4)
+        ]
+
+    plot_states(
+        [2*sigma],
+        ts,
+        ylabels=state_labels,
+        xlabel="Time [s]",
+        # legend_labels=xs_labels,
+        kwargs=[
+            {"linestyle": "-", "color": "tab:blue"},
+            {"linestyle": "--", "color": "tab:purple"},
+            {"linestyle": "--", "color": "tab:purple"},
+            {"color": "tab:orange"},
+        ],
+        zoom_region_and_inset_bounds=zoom_region_and_inset_bounds,
+        axs=twosigma_axs
+    )
+    
+def compare_filters_on_truth(filter_a, filter_b):
+    states_fig, states_axs = plt.subplots(4, 2)
+    twosigma_fig, twosigma_axs = plt.subplots(4, 2)
+
+    for i, filter in enumerate([filter_a, filter_b]):
+        filter_on_truth_data(filter, states_axs[:,i], twosigma_axs[:,i])
+
+    states_fig.suptitle(f"{filter_a.upper()} vs. {filter_b.upper()}, Estimated States")
+    twosigma_fig.suptitle(fr"{filter_a.upper()} vs. {filter_b.upper()}, $2\sigma$ State Uncertainty")
+
+    states_fig.tight_layout()
+    twosigma_fig.tight_layout()
+
+    states_fig.savefig(f"{FIGS_FOLDER}/{filter_a}_vs_{filter_b}_states.pdf")
+    twosigma_fig.savefig(f"{FIGS_FOLDER}/{filter_a}_vs_{filter_b}_twosigma.pdf")    
 
 if __name__ == "__main__":
     part_1_ex_3()
-    # typical_simulation("lkf")
-    # typical_simulation("ekf")
-    # typical_simulation("ukf")
+    typical_simulation("lkf")
+    typical_simulation("ekf")
+    typical_simulation("ukf")
+    compare_filters_on_truth("lkf", "ekf")
+    compare_filters_on_truth("ekf", "ukf")
