@@ -55,6 +55,9 @@ def run_test(x_pert, Q, filter="ekf", ts=ts):
         for t, x in zip(ts, x_pert_nonlinear)
     ]
 
+    # TODO REMOVE
+    # visible_stations = [[v[0]] if len(v) >= 1 else [] for v in visible_stations]
+
     all_measurements = [
         measurements(x, [station_trajectories[i] for i in vs], t, R=R)
         for t, x, vs in zip(ts, x_pert_nonlinear, visible_stations)
@@ -188,9 +191,9 @@ if __name__ == "__main__":
     N = 48  # 12 * 8 for final
     # qs = np.logspace(-9, -7, 11)
     qs = np.logspace(-10, 4, 15)
-    filter = "lkf"
+    filter = "ekf"
     alpha = 0.05
-    Q_best = Q_tuned_lkf
+    Q_best = Q_tuned_ekf
 
     kl_NEESs = []
     stat_NEESs = []
@@ -229,6 +232,6 @@ if __name__ == "__main__":
     eps_NEES, eps_NIS = run_tests(Q=Q_best, filter=filter, N=N, ts=ts)
     alpha = 0.05
     plot_test(ts, eps_NEES, test_name="NEES", n=4, N=N, alpha=alpha)
-    plot_test(ts, eps_NIS, test_name="NIS", n=4, N=N, alpha=alpha)
+    plot_test(ts, eps_NIS, test_name="NIS", n=3, N=N, alpha=alpha)
 
     plt.show()

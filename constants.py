@@ -32,6 +32,7 @@ visible_stations_truth[0] = []
 # Filters
 Q_tuned_lkf = np.eye(2) * 1e0
 Q_tuned_ekf = np.eye(2) * 1e-8
+Q_tuned_ekf[0, 1] = Q_tuned_ekf[1, 0] = 5e-11
 Q_tuned_ukf = np.eye(2) * 1e-8
 
 # Initial Distributions
