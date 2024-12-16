@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 from dynamics import CircularTrajectory, LinearizedSystem
 
@@ -23,7 +24,7 @@ Q_truth = np.eye(2) * 1e-10
 
 raw_ydata = np.loadtxt(f"{os.path.dirname(__file__)}/ydata.csv", delimiter=",")
 raw_ydata[:, 0] = 0
-y_truth = [raw_ydata.T[i, :3] for i in range(raw_ydata.shape[1])] 
+y_truth = [raw_ydata.T[i, :3] for i in range(raw_ydata.shape[1])]
 visible_stations_truth = [[int(i - 1)] for i in raw_ydata[3, :]]
 y_truth[0] = np.zeros([])
 visible_stations_truth[0] = []
@@ -35,4 +36,4 @@ Q_tuned_ukf = np.eye(2) * 1e-8
 
 # Initial Distributions
 dx0_bar_true = np.zeros(4)
-P0_true = np.diag([10, 0.5, 10, 0.5])
+P0_true = np.diag([1, 0.05, 1, 0.05])

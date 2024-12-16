@@ -133,7 +133,7 @@ def part_1_ex_3():
     plot_measurements(
         masked_y_pert_nonlinear,
         ts,
-        ylables=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
+        ylabels=[f"$y^{{s=1}}_{i}$" for i in range(1, 4)],
         xlabel="Time [s]",
     )
 

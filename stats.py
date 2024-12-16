@@ -117,15 +117,19 @@ def run_tests(Q, filter="ekf", dx0_bar_true=dx0_bar_true, P0_true=P0_true, N=25,
 
 
 def test_kl(eps, N=1, n=4):
-    max_eps = chi2.ppf(1 - 1e-9, df=N * n) / N * 5
+    r2 = chi2.ppf(1 - 1e-9, df=N * n) / N
 
-    bins = np.linspace(0, max_eps, 2000)
+    max_bin = np.maximum(np.percentile(eps, 99), r2 * 5)
+
+    bins = np.linspace(0, max_bin, 2000)
     counts, _ = np.histogram(eps, bins=bins, density=True)
-    counts[-sum(eps > max_eps)] += 1
+    # counts[-sum(eps > max_eps)] += 1
     sample_points = bins[:-1] + np.diff(bins) / 2
     theoretical_pdf = chi2.pdf(sample_points * N, df=N * n) * N
 
     kl_divergence = entropy(counts, theoretical_pdf)
+    if np.isnan(kl_divergence):
+        kl_divergence = np.inf
     return kl_divergence
 
 
@@ -155,14 +159,17 @@ def plot_test(ts, eps, alpha=0.05, N=1, n=4, test_name=None):
     ax.plot(ts, eps, ".")
     ax.set_ylim([0, r2 * 2])
 
-    bins = np.linspace(0, r2 * 5, 100)
-
+    bins = 500
+    max_bin = np.maximum(np.percentile(eps, 99), r2 * 5)
+    bins = np.linspace(0, max_bin, bins)
     ax = axs[1]
-    _, bins, _ = ax.hist(eps.flatten(), bins=bins, density=True)
-    sample_points = bins[:-1] + np.diff(bins) / 2
+    ax.hist(eps.flatten(), bins=bins, density=True)
+
+    sample_points = np.linspace(0, r2 * 5, 1000)
     theoretical_pdf = chi2.pdf(sample_points * N, df=N * n) * N
     ax.plot(sample_points, theoretical_pdf)
     ax.set_xlabel(f"KL: {test_kl(eps, N, n)}")
+    ax.set_xlim([0, r2 * 5])
 
     return fig, ax
 
@@ -179,10 +186,11 @@ if __name__ == "__main__":
     )
 
     N = 48  # 12 * 8 for final
-    qs = np.logspace(-12, 8, 11)  # 21 for final
+    # qs = np.logspace(-9, -7, 11)
+    qs = np.logspace(-10, 4, 15)
     filter = "lkf"
     alpha = 0.05
-    Q_best = Q_tuned_ekf
+    Q_best = Q_tuned_lkf
 
     kl_NEESs = []
     stat_NEESs = []
