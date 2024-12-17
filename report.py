@@ -299,7 +299,7 @@ def filter_on_truth_data(filter, states_axs, twosigma_axs):
             Q=Q_tuned_lkf,
             dt=dt,
         )
-        x_hat, P, _, _ = lkf.solve()
+        x_hat, P, S, e_NIS = lkf.solve()
         x_tot = x_hat + x_nom
 
     elif filter == "ekf":
@@ -313,7 +313,7 @@ def filter_on_truth_data(filter, states_axs, twosigma_axs):
             Q=Q_tuned_ekf,
             dt=dt,
         )
-        x_tot, P, _, _ = ekf.solve()
+        x_tot, P, S, e_NIS = ekf.solve()
         x_hat = x_tot - x_nom
 
     elif filter == "ukf":
@@ -327,7 +327,7 @@ def filter_on_truth_data(filter, states_axs, twosigma_axs):
             Q=Q_tuned_ukf,
             dt=dt,
         )
-        x_tot, P, _, _ = ukf.solve()
+        x_tot, P, S, e_NIS = ukf.solve()
         x_hat = x_tot - x_nom
 
     sigma = np.sqrt(np.array([np.diag(p) for p in P]))
@@ -374,6 +374,11 @@ def filter_on_truth_data(filter, states_axs, twosigma_axs):
         zoom_region_and_inset_bounds=zoom_region_and_inset_bounds,
         axs=twosigma_axs,
     )
+
+    eps_NIS = stat_eps(e_NIS[1:], S[1:])
+    fig, ax = plot_test(ts[1:], eps_NIS, test_name="NIS", n=3, N=1, alpha=0.05)
+    # plt.show()
+    fig.savefig(f"{FIGS_FOLDER}/{filter}_NIS_on_truth.pdf")
 
 
 def compare_filters_on_truth(filter_a, filter_b):

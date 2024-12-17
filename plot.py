@@ -1,8 +1,8 @@
 from typing import *
 
+import matplotlib as mpl
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
 from constants import *
 
@@ -12,6 +12,7 @@ plt.rcParams["mathtext.fontset"] = "stix"
 plt.rcParams["lines.linewidth"] = 1.0
 plt.rc("legend", fontsize="small")
 mpl.rcParams.update({"axes.grid": True, "grid.linewidth": 0.2})
+
 
 def plot_orbits(xs: Sequence[np.ndarray], ax=None):
     if ax is None:
@@ -31,7 +32,7 @@ def plot_states(
     xlabel: str = "",
     legend_labels: Sequence[str] = [],
     kwargs: Sequence[dict[str, Any]] = [],
-    zoom_region_and_inset_bounds = None,
+    zoom_region_and_inset_bounds=None,
     axs=None,
 ):
     if axs is None:
@@ -80,7 +81,8 @@ def plot_measurements(
     ys = [y[:, i * 3 : (i + 1) * 3] for i in range(n_stations)]
     cmap = plt.get_cmap("tab20")
     kwargs = [
-        {"markersize": 4, "marker": "x", "color": cmap(i), "linestyle": ""} for i in range(n_stations)
+        {"markersize": 4, "marker": "x", "color": cmap(i), "linestyle": ""}
+        for i in range(n_stations)
     ]
     return plot_states(
         ys,
@@ -91,31 +93,32 @@ def plot_measurements(
         kwargs=kwargs,
     )
 
+
 def add_zoom_inset(ax, zoom_region, inset_bounds, **kwargs):
     """
     Adds a zoomed-in inset to a given Matplotlib axis.
-    
+
     Args:
         ax (matplotlib.axes.Axes): The main axis to which the inset will be added.
         zoom_region (tuple): A tuple (x_min, x_max, y_min, y_max) defining the zoomed-in region.
         inset_bounds (tuple): A tuple (x0, y0, width, height) in figure-relative coordinates [0, 1].
         **kwargs: Additional keyword arguments for inset customization (e.g., frame_on).
-    
+
     Returns:
         matplotlib.axes.Axes: The inset axis object.
     """
     # Create an inset axis
     inset_ax = ax.inset_axes(inset_bounds, **kwargs)
-    
+
     # Set the zoomed region for the inset
     x_min, x_max, y_min, y_max = zoom_region
     inset_ax.set_xlim(x_min, x_max)
     inset_ax.set_ylim(y_min, y_max)
-    
+
     # Copy the style of the main plot (optional)
     inset_ax.tick_params(labelsize=8)
-    
+
     # Indicate the zoomed region on the main plot
     ax.indicate_inset_zoom(inset_ax, edgecolor="k", linewidth=1)
-    
+
     return inset_ax

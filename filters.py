@@ -163,6 +163,7 @@ class EKF:
 
         return x_k_plus_1_post, P_x_k_plus_1_post, S_k_plus_1, e_k_plus_1
 
+
 @dataclass
 class UKF:
     lt: LinearizedSystem
@@ -210,64 +211,73 @@ class UKF:
         t_k_plus_1 = (k + 1) * self.dt
 
         Omega_k = self.lt.Omega_tilde(t_k, self.dt)
-        R_k_plus_1 = self.Rk(k+1)
+        R_k_plus_1 = self.Rk(k + 1)
 
-        weights_c = np.zeros(2*d+1)
-        weights_m = np.zeros(2*d+1)
+        weights_c = np.zeros(2 * d + 1)
+        weights_m = np.zeros(2 * d + 1)
 
-        for i in range(2*d+1):
+        for i in range(2 * d + 1):
             if i == 0:
                 weights_m[i] = lambda_ / (d + lambda_)
                 weights_c[i] = weights_m[i] + 1 - self.alpha**2 + self.beta
             else:
-                weights_m[i] = 1 / (2*(d + lambda_))
+                weights_m[i] = 1 / (2 * (d + lambda_))
                 weights_c[i] = weights_m[i]
 
         def sigmaProp(x, P, fun):
-            
             chol_P_k = np.linalg.cholesky(P)
 
             samples = []
-            for i in range(2*d+1):
+            for i in range(2 * d + 1):
                 if i == 0:
                     sample_pre = x
                 else:
                     j = i
                     if j >= d + 1:
                         j -= d
-                    S_k_j_T = chol_P_k[:, j-1]
+                    S_k_j_T = chol_P_k[:, j - 1]
 
                     if i <= d:
-                        sample_pre = x + np.sqrt(d+lambda_)*S_k_j_T 
+                        sample_pre = x + np.sqrt(d + lambda_) * S_k_j_T
                     else:
-                        sample_pre = x - np.sqrt(d+lambda_)*S_k_j_T 
+                        sample_pre = x - np.sqrt(d + lambda_) * S_k_j_T
 
                 samples.append(fun(sample_pre))
 
             return samples
-        
+
         def getMean(samples):
             mean = np.zeros_like(samples[0])
-            for i in range(2*d+1):
+            for i in range(2 * d + 1):
                 mean += weights_m[i] * samples[i]
             return mean
-        
+
         def getCov(ini, samples_a, mean_a, samples_b, mean_b):
             cov = np.copy(ini)
-            for i in range(2*d+1):
-                cov += weights_c[i] * np.outer(samples_a[i] - mean_a, samples_b[i] - mean_b)       
+            for i in range(2 * d + 1):
+                cov += weights_c[i] * np.outer(
+                    samples_a[i] - mean_a, samples_b[i] - mean_b
+                )
 
             return cov
 
         x_samples = sigmaProp(
-            x_hat_k, P_k, 
+            x_hat_k,
+            P_k,
             lambda x: EllipticalTrajectory(x).propagate([0, self.dt])[1, :],
         )
         x_k_plus_1_pre = getMean(x_samples)
-        P_x_k_plus_1_pre = getCov(Omega_k @ self.Q @ Omega_k.T, x_samples, x_k_plus_1_pre, x_samples, x_k_plus_1_pre)
+        P_x_k_plus_1_pre = getCov(
+            Omega_k @ self.Q @ Omega_k.T,
+            x_samples,
+            x_k_plus_1_pre,
+            x_samples,
+            x_k_plus_1_pre,
+        )
 
         y_samples = sigmaProp(
-            x_k_plus_1_pre, P_x_k_plus_1_pre, 
+            x_k_plus_1_pre,
+            P_x_k_plus_1_pre,
             lambda x: measurements(
                 x,
                 [self.lt.stations[i] for i in self.visible_stations[k + 1]],
@@ -275,9 +285,17 @@ class UKF:
             ),
         )
         y_k_plus_1_pre = getMean(y_samples)
-        P_y_k_plus_1 = getCov(R_k_plus_1, y_samples, y_k_plus_1_pre, y_samples, y_k_plus_1_pre)
+        P_y_k_plus_1 = getCov(
+            R_k_plus_1, y_samples, y_k_plus_1_pre, y_samples, y_k_plus_1_pre
+        )
 
-        P_xy_k_plus_1 = getCov(np.zeros([d, R_k_plus_1.shape[0]]), x_samples, x_k_plus_1_pre, y_samples, y_k_plus_1_pre)
+        P_xy_k_plus_1 = getCov(
+            np.zeros([d, R_k_plus_1.shape[0]]),
+            x_samples,
+            x_k_plus_1_pre,
+            y_samples,
+            y_k_plus_1_pre,
+        )
 
         e_k_plus_1 = y_k_plus_1 - y_k_plus_1_pre
         e_k_plus_1[2::3] = (e_k_plus_1[2::3] + np.pi) % (2 * np.pi) - np.pi
@@ -289,15 +307,16 @@ class UKF:
 
         return x_k_plus_1_post, P_x_k_plus_1_post, P_y_k_plus_1, e_k_plus_1
 
+
 if __name__ == "__main__":
     import sys
 
     import matplotlib.pyplot as plt
     from constants import (  # visible_stations_truth,; y_truth,
         P0_true,
+        Q_truth,
         Q_tuned_ekf,
         Q_tuned_lkf,
-        Q_truth,
         R,
         dt,
         dx0_bar_true,

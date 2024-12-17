@@ -188,6 +188,8 @@ if __name__ == "__main__":
         ts,
     )
 
+    ts = np.arange(0, 5700, 10)
+
     N = 48  # 12 * 8 for final
     # qs = np.logspace(-9, -7, 11)
     qs = np.logspace(-10, 4, 15)

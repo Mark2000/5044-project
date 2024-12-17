@@ -30,11 +30,11 @@ y_truth[0] = np.zeros([])
 visible_stations_truth[0] = []
 
 # Filters
-Q_tuned_lkf = np.eye(2) * 1e0
+Q_tuned_lkf = np.eye(2) * 1e-4
 Q_tuned_ekf = np.eye(2) * 1e-8
 Q_tuned_ekf[0, 1] = Q_tuned_ekf[1, 0] = 5e-11
 Q_tuned_ukf = np.eye(2) * 1e-8
 
 # Initial Distributions
 dx0_bar_true = np.zeros(4)
-P0_true = np.diag([1, 0.05, 1, 0.05])
+P0_true = np.diag([0.01, 0.00005, 0.01, 0.00005])
