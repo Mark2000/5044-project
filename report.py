@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from constants import *
 from dynamics import *
 from filters import *
+from matplotlib.colors import LogNorm, Normalize
 from plot import *
 from stats import *
 
@@ -410,23 +411,102 @@ def optimization_plot(path):
     filter = stats["filter"]
     alpha = stats["alpha"]
 
-    fig, axs = plt.subplots(2, 1, sharex=True)
-    ax = axs[0]
-    ax.plot(qs, kl_NEESs, label="NEES", marker="o")
-    ax.plot(qs, kl_NISs, label="NIS", marker="o")
-    ax.legend()
-    ax.set_ylim(bottom=0)
-    ax.set_ylabel("KL Divergence")
+    if isinstance(qs[0], float):
+        fig, axs = plt.subplots(2, 1, sharex=True)
+        ax = axs[0]
+        ax.plot(qs, kl_NEESs, label="NEES", marker="o")
+        ax.plot(qs, kl_NISs, label="NIS", marker="o")
+        ax.legend()
+        ax.set_ylim(bottom=0)
+        ax.set_ylabel("KL Divergence")
 
-    ax = axs[1]
-    ax.plot(qs, 100 * np.array(stat_NEESs), label="NEES", marker="o")
-    ax.plot(qs, 100 * np.array(stat_NISs), label="NIS", marker="o")
-    ax.axhline(100 * (1 - alpha), color="k", linestyle="--")
-    ax.set_ylabel("Consistency [%]")
-    ax.set_ylim(bottom=0, top=100)
+        ax = axs[1]
+        ax.plot(qs, 100 * np.array(stat_NEESs), label="NEES", marker="o")
+        ax.plot(qs, 100 * np.array(stat_NISs), label="NIS", marker="o")
+        ax.axhline(100 * (1 - alpha), color="k", linestyle="--")
+        ax.set_ylabel("Consistency [%]")
+        ax.set_ylim(bottom=0, top=100)
 
-    ax.set_xlabel("$q$")
-    ax.set_xscale("log")
+        ax.set_xlabel("$q$")
+        ax.set_xscale("log")
+
+    else:
+        fig, axs = plt.subplots(2, 2, sharex=True, sharey=True)
+
+        q_diag = np.sort(np.unique([q[0] for q in qs]))
+        q_off_scale = np.sort(
+            np.unique([np.round(q[1] / q[0], decimals=5) for q in qs])
+        )
+
+        cbar_args = dict(cmap="viridis_r", norm=LogNorm(vmin=1e-1, vmax=10))
+
+        kl_NEESs = np.array(kl_NEESs)
+        kl_NISs = np.array(kl_NISs)
+        kl_NEESs[kl_NEESs > 200] = 200
+        kl_NISs[kl_NISs > 200] = 200
+
+        ax = axs[0, 0]
+        p1 = ax.pcolor(
+            q_off_scale,
+            q_diag,
+            np.array(kl_NEESs).reshape(len(q_diag), len(q_off_scale)),
+            shading="nearest",
+            **cbar_args,
+        )
+        # ax.set_title("KL NEES")
+        ax.set_title("NEES")
+
+        ax = axs[0, 1]
+        p2 = ax.pcolor(
+            q_off_scale,
+            q_diag,
+            np.array(kl_NISs).reshape(len(q_diag), len(q_off_scale)),
+            shading="nearest",
+            **cbar_args,
+        )
+        # ax.set_title("KL NIS")
+        ax.set_title("NIS")
+
+        fig.colorbar(p2, ax=[axs[0, 0], axs[0, 1]], extend="max", label="KL Divergence")
+
+        cbar_args = dict(cmap="plasma", norm=Normalize(vmin=0, vmax=100))
+
+        ax = axs[1, 0]
+        p1 = ax.pcolor(
+            q_off_scale,
+            q_diag,
+            100 * np.array(stat_NEESs).reshape(len(q_diag), len(q_off_scale)),
+            shading="nearest",
+            **cbar_args,
+        )
+        # ax.set_title("Stat NEES")
+
+        ax = axs[1, 1]
+        p2 = ax.pcolor(
+            q_off_scale,
+            q_diag,
+            100 * np.array(stat_NISs).reshape(len(q_diag), len(q_off_scale)),
+            shading="nearest",
+            **cbar_args,
+        )
+        # ax.set_title("Stat NIS")
+
+        fig.colorbar(
+            p2,
+            ax=[axs[1, 0], axs[1, 1]],
+            label=f"Consist. % (Goal: {100*(1-alpha):.0f}%)",
+        )
+
+        for ax in axs.flat:
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            ax.set_xlim(q_off_scale.min(), q_off_scale.max())
+            ax.set_ylim(q_diag.min(), q_diag.max())
+
+        for ax in axs[:, 0]:
+            ax.set_ylabel("$q_{diag}$")
+        for ax in axs[-1, :]:
+            ax.set_xlabel("$q_{off}/q_{diag}$")
 
     fig.savefig(f"{FIGS_FOLDER}/optimization_plot_{filter}.pdf")
 

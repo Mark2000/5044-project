@@ -190,10 +190,14 @@ if __name__ == "__main__":
 
     ts = np.arange(0, 5700, 10)
 
-    N = 48  # 12 * 8 for final
-    # qs = np.logspace(-9, -7, 11)
-    qs = np.logspace(-10, 4, 15)
-    filter = "ekf"
+    N = 12
+    # q_diag = np.logspace(-10, -6, 21)
+    q_diag = np.logspace(-8, 8, 17)
+    q_off_scale = np.logspace(-3, 0, 5)
+
+    qs = [(qd, qd * qo) for qd in q_diag for qo in q_off_scale]
+
+    filter = "lkf"
     alpha = 0.05
     Q_best = Q_tuned_ekf
 
@@ -202,12 +206,16 @@ if __name__ == "__main__":
     kl_NISs = []
     stat_NISs = []
     for q in tqdm(qs):
-        Q = np.eye(2) * q
+        if isinstance(q, float):
+            Q = np.eye(2) * q
+        else:
+            Q = np.eye(2) * q[0]
+            Q[0, 1] = Q[1, 0] = q[1]
         eps_NEES, eps_NIS = run_tests(Q=Q, filter=filter, N=N, ts=ts)
-        kl_NEESs.append(test_kl(eps_NEES, N=N))
-        stat_NEESs.append(test_alpha(eps_NEES, N=N, alpha=alpha))
-        kl_NISs.append(test_kl(eps_NIS, N=N))
-        stat_NISs.append(test_alpha(eps_NIS, N=N, alpha=alpha))
+        kl_NEESs.append(test_kl(eps_NEES, N=N, n=4))
+        stat_NEESs.append(test_alpha(eps_NEES, N=N, alpha=alpha, n=4))
+        kl_NISs.append(test_kl(eps_NIS, N=N, n=3))
+        stat_NISs.append(test_alpha(eps_NIS, N=N, alpha=alpha, n=3))
 
     data = {
         "filter": filter,
@@ -222,18 +230,9 @@ if __name__ == "__main__":
     }
     np.save(Path(__file__).resolve().parent / "dat" / f"stats_{filter}.npy", data)
 
-    fig, ax = plt.subplots(1, 1)
-    ax.plot(qs, kl_NEESs, label="NEES", marker="o")
-    ax.plot(qs, kl_NISs, label="NIS", marker="o")
-    ax.legend()
-    ax.set_xscale("log")
-    ax.set_xlabel("$Q$")
-    ax.set_ylim(bottom=0)
-    ax.set_ylabel("KL Divergence")
-
-    eps_NEES, eps_NIS = run_tests(Q=Q_best, filter=filter, N=N, ts=ts)
-    alpha = 0.05
-    plot_test(ts, eps_NEES, test_name="NEES", n=4, N=N, alpha=alpha)
-    plot_test(ts, eps_NIS, test_name="NIS", n=3, N=N, alpha=alpha)
+    # eps_NEES, eps_NIS = run_tests(Q=Q_best, filter=filter, N=N, ts=ts)
+    # alpha = 0.05
+    # plot_test(ts, eps_NEES, test_name="NEES", n=4, N=N, alpha=alpha)
+    # plot_test(ts, eps_NIS, test_name="NIS", n=3, N=N, alpha=alpha)
 
     plt.show()
